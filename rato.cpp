@@ -1,12 +1,169 @@
 #include <iostream>
+#include <string>
 #include <SFML/Graphics.hpp>
 using namespace std;
 
+class Slime{
+public:
+    Slime() : x(300.f),y(400.f),hp(100),energy(100),speed(200.f){
+        if(!texture.loadFromFile("assets/textures/slime.png")){
+            throw runtime_error("Error loading slime!");
+        }
+        sprite.setTexture(texture);
+        sprite.setScale(5.f,5.f);
+
+        sf::FloatRect bounds = sprite.getLocalBounds();
+        sprite.setOrigin(bounds.width/2.f,bounds.height/2.f);
+        sprite.setPosition((float)x,(float)y);
+    }
+
+    void draw(sf::RenderWindow& window){
+        window.draw(sprite);
+    }
+
+    void move(float deltaTime){
+        sf::Vector2f movement(0.f,0.f);
+
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::W) && y >= 400){
+            movement.y -= speed;
+        }
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
+            movement.x -= speed;
+        }
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
+            movement.x += speed;
+        }
+
+        sprite.move(movement*deltaTime);
+        x = sprite.getPosition().x;
+        y = sprite.getPosition().y;
+    }
+
+private:
+    sf::Texture texture;
+    sf::Sprite sprite;
+
+    float x,y;
+    int hp,energy;
+    float speed;
+};
+
+class Spike{
+public:
+    Spike() : x(500),y(100){
+        if(!texture.loadFromFile("assets/textures/spike.png")){
+            throw runtime_error("Error loading spike!");
+        }
+        sprite.setTexture(texture);
+        sprite.setScale(8.f,8.f);
+
+        sf::FloatRect bounds = sprite.getLocalBounds();
+        sprite.setOrigin(bounds.width/2.f,bounds.height/2.f);
+        sprite.setPosition((float)x,(float)y);
+    }
+
+    void draw(sf::RenderWindow& window){
+        window.draw(sprite);
+    }
+
+private:
+    sf::Texture texture;
+    sf::Sprite sprite;
+
+    int x,y;
+};
+
+class Zombie{
+public:
+    Zombie() : x(600),y(400){
+        if(!texture.loadFromFile("assets/textures/zombie.png")){
+            throw runtime_error("Error loading zombie!");
+        }
+        sprite.setTexture(texture);
+        sprite.setScale(4.f,4.f);
+
+        sf::FloatRect bounds = sprite.getLocalBounds();
+        sprite.setOrigin(bounds.width/2.f,bounds.height/2.f);
+        sprite.setPosition((float)x,(float)y);
+    }
+
+    void draw(sf::RenderWindow& window){
+        window.draw(sprite);
+    }
+
+private:
+    sf::Texture texture;
+    sf::Sprite sprite;
+
+    int x,y;
+};
+
+class Button{
+public:
+    Button(string title,sf::Vector2f size,sf::Vector2f pos,sf::Font& font){
+        button.setSize(size);
+        button.setFillColor(sf::Color(18,145,33));
+        button.setOutlineThickness(2.f);
+        button.setOutlineColor(sf::Color(13,104,24));
+        
+        button.setOrigin(size.x/2.f,size.y/2.f);
+        button.setPosition(pos);
+
+        text.setFont(font);
+        text.setString(title);
+        text.setCharacterSize((unsigned int)(size.y*0.5f));
+        text.setFillColor(sf::Color::White);
+
+        sf::FloatRect bounds = text.getLocalBounds();
+        text.setOrigin(bounds.left + bounds.width/2.f,bounds.top + bounds.height/2.f);
+        text.setPosition(button.getPosition());
+    }
+
+    void draw(sf::RenderWindow& window){
+        window.draw(button);
+        window.draw(text);
+    }
+
+    bool isHoveredOver(sf::Vector2f mouse){
+        return button.getGlobalBounds().contains(mouse);
+    }
+
+    void setFillColor(sf::Color color){
+        button.setFillColor(color);
+    }
+
+private:
+    sf::RectangleShape button;
+    sf::Text text;
+};
+
+class Text{
+public:
+    Text(string title,unsigned int size,sf::Vector2f pos,sf::Font& font){
+        text.setFont(font);
+        text.setString(title);
+        text.setCharacterSize(size);
+        text.setFillColor(sf::Color::White);
+
+        sf::FloatRect bounds = text.getLocalBounds();
+        text.setOrigin(bounds.left + bounds.width/2.f,bounds.top + bounds.height/2.f);
+        text.setPosition(pos);
+    }
+
+    void draw(sf::RenderWindow& window){
+        window.draw(text);
+    }
+
+private:
+    sf::Text text;
+};
+
 int main(){
-    bool clicked = false;
     sf::VideoMode screen = sf::VideoMode::getDesktopMode();
     float screenWidth = static_cast<float>(screen.width);
     float screenHeight = static_cast<float>(screen.height);
+
+    sf::Clock clock;
     sf::RenderWindow window(screen,"Rato's paradise",sf::Style::Fullscreen);
     sf::Font font;
     if (!font.loadFromFile("assets/font.ttf")) {
@@ -23,70 +180,31 @@ int main(){
     sf::Sprite background(bgPhoto);
     background.setScale(screenWidth/bgPhoto.getSize().x,screenHeight/bgPhoto.getSize().y);
 
-    // Slime
-    sf::Texture slimePhoto;
-    if(!slimePhoto.loadFromFile("assets/textures/slime.png")){
-        cerr << "Error loading slime!" << endl;
-        return 1;
-    }
-    sf::Sprite slime(slimePhoto);
-    slime.setScale(5.f,5.f);
-    slime.setPosition(2.f/5.f*screenWidth,2.f/5.f*screenHeight);
-
-    // Spike
-    sf::Texture spikePhoto;
-    if(!spikePhoto.loadFromFile("assets/textures/spike.png")){
-        cerr << "Error loading spike!" << endl;
-        return 1;
-    }
-    sf::Sprite spike(spikePhoto);
-    spike.setScale(2.f,2.f);
-    spike.setPosition(47.f/100.f*screenWidth,11.f/20.f*screenHeight);
-
     // Main text
-    sf::Text mainText;
-    mainText.setFont(font);
-    mainText.setString("Rato's paradise");
-    mainText.setCharacterSize(screenWidth/16.f);
-    mainText.setFillColor(sf::Color(10,80,18));
-    sf::FloatRect textRect = mainText.getLocalBounds();
-    mainText.setOrigin(textRect.left + textRect.width/2.f,textRect.top + textRect.height/2.f);
-    mainText.setPosition(screenWidth/2.f,5.f/36.f*screenHeight);
+    Text text("Rato's paradise",screenWidth/16.f,{screenWidth/2.f,5.f/36.f*screenHeight},font);
 
     // Quit button
-    sf::RectangleShape buttonQuit(sf::Vector2f(5.f/96.f*screenWidth,5.f/108.f*screenHeight));
-    buttonQuit.setFillColor(sf::Color(18,145,33));
-    buttonQuit.setOutlineThickness(screenWidth/960.f);
-    buttonQuit.setOutlineColor(sf::Color(13,104,24));
-    buttonQuit.setPosition(screenWidth/64.f,25.f/27.f*screenHeight);
-    sf::Text quitText;
-    quitText.setFont(font);
-    quitText.setString("Quit");
-    quitText.setCharacterSize(screenWidth/80.f);
-    quitText.setFillColor(sf::Color::White);
-    sf::FloatRect quitRect = quitText.getLocalBounds();
-    quitText.setOrigin(quitRect.left + quitRect.width/2.f,quitRect.top + quitRect.height/2.f);
-    quitText.setPosition(buttonQuit.getPosition().x + buttonQuit.getSize().x/2.f,buttonQuit.getPosition().y + buttonQuit.getSize().y/2.f);
+    Button quit("Quit",{5.f/96.f*screenWidth,5.f/108.f*screenHeight},{4.f/64.f*screenWidth,25.f/27.f*screenHeight},font);
 
     // Examplary button
-    sf::RectangleShape button(sf::Vector2f(5.f/30.f*screenWidth,5.f/108.f*screenHeight));
-    button.setFillColor(sf::Color(18,145,33));
-    button.setOutlineThickness(screenWidth/960.f);
-    button.setOutlineColor(sf::Color(13,104,24));
-    button.setPosition(4.f/5.f*screenWidth,3.f/10.f*screenHeight);
-    sf::Text buttonText;
-    buttonText.setFont(font);
-    buttonText.setString("Button");
-    buttonText.setCharacterSize(24.f*screenWidth/1920.f);
-    buttonText.setFillColor(sf::Color::White);
-    sf::FloatRect rockRect = buttonText.getLocalBounds();
-    buttonText.setOrigin(rockRect.left + rockRect.width/2.f,rockRect.top + rockRect.height/2.f);
-    buttonText.setPosition(button.getPosition().x + button.getSize().x/2.f,button.getPosition().y + button.getSize().y/2.f);
+    Button example("Title",{200,40},{screenWidth/2.f,screenHeight/2.f},font);
+
+    //Slime
+    Slime slime;
+
+    // Spike
+    Spike spike;
+
+    // Zombie
+    Zombie zombie;
 
     while(window.isOpen()){
         sf::Event event;
         sf::Vector2i mousePixelPos = sf::Mouse::getPosition(window);
         sf::Vector2f mouseWorldPos = window.mapPixelToCoords(mousePixelPos);
+
+        sf::Time tickTime = clock.restart();
+        float deltaTime = tickTime.asSeconds();
 
         while(window.pollEvent(event)){
             if(event.type == sf::Event::Closed){
@@ -101,45 +219,38 @@ int main(){
 
             if(event.type == sf::Event::MouseButtonPressed){
                 if(event.mouseButton.button == sf::Mouse::Left){
-                    if(buttonQuit.getGlobalBounds().contains(mouseWorldPos)){
+                    if(quit.isHoveredOver(mouseWorldPos)){
                         window.close();
-                    }
-
-                    if(button.getGlobalBounds().contains(mouseWorldPos)){
-                        clicked = true;
                     }
                 }
             }
         }
 
-        if(buttonQuit.getGlobalBounds().contains(mouseWorldPos)){
-            buttonQuit.setFillColor(sf::Color(18,125,33));
+        if(quit.isHoveredOver(mouseWorldPos)){
+            quit.setFillColor(sf::Color(18,125,33));
         } 
         else{
-            buttonQuit.setFillColor(sf::Color(18,145,33));
+            quit.setFillColor(sf::Color(18,145,33));
         }
 
-        if(button.getGlobalBounds().contains(mouseWorldPos)){
-            button.setFillColor(sf::Color(18,125,33));
+        if(example.isHoveredOver(mouseWorldPos)){
+            example.setFillColor(sf::Color(18,125,33));
         } 
         else{
-            button.setFillColor(sf::Color(18,145,33));
+            example.setFillColor(sf::Color(18,145,33));
         }
+
+        slime.move(deltaTime);
 
         window.clear();
         window.draw(background);
-        window.draw(buttonQuit);
-        window.draw(quitText);
-        window.draw(button);
-        window.draw(buttonText);
-        window.draw(slime);
+        quit.draw(window);
+        example.draw(window);
+        text.draw(window);
+        slime.draw(window);
+        spike.draw(window);
+        zombie.draw(window);
 
-        if(!clicked){
-        }
-        else if(clicked){
-            window.draw(spike);
-        }
-        window.draw(mainText);
         window.display();
     }
 }
