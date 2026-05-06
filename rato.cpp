@@ -1,11 +1,12 @@
 #include <iostream>
 #include <string>
+#include <optional>
 #include <SFML/Graphics.hpp>
 using namespace std;
 
 class Slime{
 public:
-    Slime() : x(300.f),y(400.f),hp(100),energy(100),speed(200.f){
+    Slime(float screenWidth) : x(300.f),y(400.f),hp(100),energy(100),speed(screenWidth*0.2f),gravity(0.f){
         if(!texture.loadFromFile("assets/textures/slime.png")){
             throw runtime_error("Error loading slime!");
         }
@@ -21,17 +22,47 @@ public:
         window.draw(sprite);
     }
 
-    void move(float deltaTime){
+    void move(float deltaTime,float screenWidth,float screenHeight){
         sf::Vector2f movement(0.f,0.f);
+        gravity += 200*screenHeight*deltaTime;
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::W) && y >= 400){
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Space) && y > 0){
             movement.y -= speed;
+            gravity = 0;
         }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
-            movement.x -= speed;
+        else if(y < screenHeight*0.9f){
+            movement.y += gravity*deltaTime;
         }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-            movement.x += speed;
+
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A) && x >= 0){
+            sprite.setScale(5.f,5.f);
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)){
+                movement.x -= 2*speed; 
+            }
+            else{
+                movement.x -= speed;
+            }
+        }
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D) && x <= screenWidth){
+            sprite.setScale(-5.f,5.f);
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) || sf::Keyboard::isKeyPressed(sf::Keyboard::RShift)){
+                movement.x += 2*speed; 
+            }
+            else{
+                movement.x += speed;
+            }
+        }
+
+        y = sprite.getPosition().y;
+        if(y >= screenHeight*0.9f){
+            if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
+                sprite.setPosition(sprite.getPosition().x,screenHeight*0.9f - 1);
+                gravity = -100*screenHeight;
+            }
+            else{
+                sprite.setPosition(sprite.getPosition().x,screenHeight*0.9f);
+                gravity = 0;
+            }
         }
 
         sprite.move(movement*deltaTime);
@@ -46,11 +77,12 @@ private:
     float x,y;
     int hp,energy;
     float speed;
+    float gravity;
 };
 
 class Spike{
 public:
-    Spike() : x(500),y(100){
+    Spike(float screenWidth,float screenHeight) : x(500),y(100){
         if(!texture.loadFromFile("assets/textures/spike.png")){
             throw runtime_error("Error loading spike!");
         }
@@ -66,6 +98,19 @@ public:
         window.draw(sprite);
     }
 
+    void move(float deltaTime,float screenHeight){
+        sf::Vector2f movement(0.f,0.f);
+        movement.y += 50*screenHeight*deltaTime;
+
+        sprite.move(movement*deltaTime);
+        x = sprite.getPosition().x;
+        y = sprite.getPosition().y;
+    }
+
+    int getY(){
+        return y;
+    }
+
 private:
     sf::Texture texture;
     sf::Sprite sprite;
@@ -75,7 +120,7 @@ private:
 
 class Zombie{
 public:
-    Zombie() : x(600),y(400){
+    Zombie(float screenWidth,float screenHeight) : x(600),y(screenHeight*0.9f),speed(10*screenWidth){
         if(!texture.loadFromFile("assets/textures/zombie.png")){
             throw runtime_error("Error loading zombie!");
         }
@@ -91,11 +136,25 @@ public:
         window.draw(sprite);
     }
 
+    void move(float deltaTime,float screenWidth){
+        sf::Vector2f movement(0.f,0.f);
+        if(x >= screenWidth || x <= 0){
+            speed = -speed;
+            sprite.setScale(-sprite.getScale().x,sprite.getScale().y);
+        }
+        movement.x += speed*deltaTime;
+
+        sprite.move(movement*deltaTime);
+        x = sprite.getPosition().x;
+        y = sprite.getPosition().y;
+    }
+
 private:
     sf::Texture texture;
     sf::Sprite sprite;
 
     int x,y;
+    float speed;
 };
 
 class Button{
@@ -181,22 +240,28 @@ int main(){
     background.setScale(screenWidth/bgPhoto.getSize().x,screenHeight/bgPhoto.getSize().y);
 
     // Main text
-    Text text("Rato's paradise",screenWidth/16.f,{screenWidth/2.f,5.f/36.f*screenHeight},font);
+    optional<Text> text;
+    text.emplace("Rato's paradise",screenWidth/16.f,sf::Vector2f(screenWidth/2.f,5.f/36.f*screenHeight),font);
 
     // Quit button
-    Button quit("Quit",{5.f/96.f*screenWidth,5.f/108.f*screenHeight},{4.f/64.f*screenWidth,25.f/27.f*screenHeight},font);
+    optional<Button> quit;
+    quit.emplace("Quit",sf::Vector2f(5.f/96.f*screenWidth,5.f/108.f*screenHeight),sf::Vector2f(4.f/64.f*screenWidth,25.f/27.f*screenHeight),font);
 
     // Examplary button
-    Button example("Title",{200,40},{screenWidth/2.f,screenHeight/2.f},font);
+    optional<Button> example;
+    example.emplace("Title",sf::Vector2f(200,40),sf::Vector2f(screenWidth/2.f,screenHeight/2.f),font);
 
     //Slime
-    Slime slime;
+    optional<Slime> slime;
+    slime.emplace(screenWidth);
 
     // Spike
-    Spike spike;
+    optional<Spike> spike;
+    spike.emplace(screenWidth,screenHeight);
 
     // Zombie
-    Zombie zombie;
+    optional<Zombie> zombie;
+    zombie.emplace(screenWidth,screenHeight);
 
     while(window.isOpen()){
         sf::Event event;
@@ -219,37 +284,43 @@ int main(){
 
             if(event.type == sf::Event::MouseButtonPressed){
                 if(event.mouseButton.button == sf::Mouse::Left){
-                    if(quit.isHoveredOver(mouseWorldPos)){
+                    if(quit->isHoveredOver(mouseWorldPos)){
                         window.close();
                     }
                 }
             }
         }
 
-        if(quit.isHoveredOver(mouseWorldPos)){
-            quit.setFillColor(sf::Color(18,125,33));
+        if(quit->isHoveredOver(mouseWorldPos)){
+            quit->setFillColor(sf::Color(18,125,33));
         } 
         else{
-            quit.setFillColor(sf::Color(18,145,33));
+            quit->setFillColor(sf::Color(18,145,33));
         }
 
-        if(example.isHoveredOver(mouseWorldPos)){
-            example.setFillColor(sf::Color(18,125,33));
+        if(example->isHoveredOver(mouseWorldPos)){
+            example->setFillColor(sf::Color(18,125,33));
         } 
         else{
-            example.setFillColor(sf::Color(18,145,33));
+            example->setFillColor(sf::Color(18,145,33));
         }
 
-        slime.move(deltaTime);
+        slime->move(deltaTime,screenWidth,screenHeight);
+        spike->move(deltaTime,screenHeight);
+        zombie->move(deltaTime,screenWidth);
+
+        if(spike->getY() > screenHeight){
+            spike.emplace(screenWidth,screenHeight);
+        }
 
         window.clear();
         window.draw(background);
-        quit.draw(window);
-        example.draw(window);
-        text.draw(window);
-        slime.draw(window);
-        spike.draw(window);
-        zombie.draw(window);
+        quit->draw(window);
+        example->draw(window);
+        text->draw(window);
+        slime->draw(window);
+        spike->draw(window);
+        zombie->draw(window);
 
         window.display();
     }
